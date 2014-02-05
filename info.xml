@@ -1,8 +1,8 @@
 <?xml version="1.0"?>
 <extension key="uk.co.vedaconsulting.module.dfptokens" type="module">
   <file>dfptokens</file>
-  <name>FIXME</name>
-  <description>FIXME</description>
+  <name>DFP tokens</name>
+  <description>DFP tokens</description>
   <license>AGPL-3.0</license>
   <maintainer>
     <author>Deepak Srivastava</author>

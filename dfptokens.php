@@ -106,3 +106,99 @@ function dfptokens_civicrm_caseTypes(&$caseTypes) {
 function dfptokens_civicrm_alterSettingsFolders(&$metaDataFolders = NULL) {
   _dfptokens_civix_civicrm_alterSettingsFolders($metaDataFolders);
 }
+
+function dfptokens_civicrm_tokens(&$tokens) {
+  $tokens['uk_co_vedaconsulting_pcp'] = array(
+    'uk_co_vedaconsulting_pcp.intro_text' => 'Veda: Fundraising Page: Intro Text',
+    'uk_co_vedaconsulting_pcp.title'      => 'Veda: Fundraising Page: Title',
+  );
+}
+
+function dfptokens_civicrm_tokenValues(&$values, $cids, $job = null, $tokens = array(), $context = null) {
+  if (!empty($tokens['uk_co_vedaconsulting_pcp']) && $job) {
+    $query = "
+          SELECT cas.entity_value, cas.entity_status, cas.recipient
+            FROM  civicrm_mailing_job cmj
+      INNER JOIN civicrm_custom_track_mailing cctm ON cmj.mailing_id = cctm.mailing_id
+      INNER JOIN civicrm_action_schedule cas ON cctm.schedule_reminder_id = cas.id
+      INNER JOIN civicrm_action_mapping cam  ON cas.mapping_id = cam.id AND cam.entity = 'civicrm_activity'
+      WHERE cmj.id = %1";
+    $dao = CRM_Core_DAO::executeQuery($query, array(1 => array($job, 'Integer')));
+    if ($dao->fetch()) {
+      $value = explode(CRM_Core_DAO::VALUE_SEPARATOR,
+        trim($dao->entity_value, CRM_Core_DAO::VALUE_SEPARATOR)
+      );
+
+      // make sure activity types belong to that contribution component
+      if (empty($value)) {
+        return;
+      } else {
+        $compId = CRM_Core_Component::getComponentID('CiviContribute');
+        $contributionActTypes = CRM_Core_OptionGroup::values('activity_type',
+          FALSE, FALSE, FALSE,
+          " AND v.component_id={$compId}",
+          'value'
+        );
+        if (array_intersect($value, $contributionActTypes) !== $value) {
+          CRM_Core_Error::debug_log_message("Activity Type doesn't belong to that contribution component.");
+          return;
+        }
+      }
+      $value  = implode(',', $value);
+      $status = explode(CRM_Core_DAO::VALUE_SEPARATOR,
+        trim($actionSchedule->entity_status, CRM_Core_DAO::VALUE_SEPARATOR)
+      );
+      $status = implode(',', $status);
+
+      $recipientOptions = CRM_Core_OptionGroup::values('activity_contacts');
+      $contactField = $join ="";
+      switch (CRM_Utils_Array::value($dao->recipient, $recipientOptions)) {
+      case 'Activity Assignees':
+        $contactField = 'r.assignee_contact_id';
+        $join = 'INNER JOIN civicrm_activity_assignment r ON  r.activity_id = act.id';
+        break;
+
+      case 'Activity Source':
+        $contactField = 'act.source_contact_id';
+        break;
+
+      case 'Activity Targets':
+        $contactField = 'r.target_contact_id';
+        $join = 'INNER JOIN civicrm_activity_target r ON  r.activity_id = act.id';
+        break;
+      }
+
+      if (!empty($value)) {
+        $where[] = "act.activity_type_id IN ({$value})";
+      }
+      if (!empty($status)) {
+        $where[] = "act.status_id IN ({$status})";
+      }
+      $where[] = "act.is_current_revision = 1";
+      $where[] = "act.is_deleted = 0";
+      $where[] = "act.source_record_id IS NOT NULL";
+      $where[] = "{$contactField} IN (" . implode(',', $cids) . ")";
+      $whereClause  = 'WHERE ' . implode(' AND ', $where);
+
+      $query = "
+        SELECT {$contactField} as contactID, act.id as activityID, act.source_record_id, con.*, pcp.*
+          FROM civicrm_activity act
+       {$join}
+    INNER JOIN  (SELECT $contactField as contact_id, MAX(act.activity_date_time) as max_date 
+                   FROM civicrm_activity act 
+                {$join}
+         {$whereClause} 
+               GROUP BY {$contactField}) maxact  ON act.activity_date_time = maxact.max_date AND {$contactField} = maxact.contact_id
+    INNER JOIN civicrm_contribution con       ON act.source_record_id = con.id
+     LEFT JOIN civicrm_contribution_soft soft ON con.id = soft.contribution_id
+     LEFT JOIN civicrm_pcp pcp                ON soft.pcp_id = pcp.id
+{$whereClause}
+      GROUP BY {$contactField}";
+      $data = CRM_Core_DAO::executeQuery($query);
+      while ($data->fetch()) {
+        $values[$data->contactID]['uk_co_vedaconsulting_pcp.intro_text'] = $data->intro_text;
+      }
+    }
+  }
+}
+
