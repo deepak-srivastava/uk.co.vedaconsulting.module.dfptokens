@@ -112,11 +112,20 @@ function dfptokens_civicrm_tokens(&$tokens) {
     'uk_co_vedaconsulting_pcp.intro_text' => 'Veda: Fundraising Page: Intro Text',
     'uk_co_vedaconsulting_pcp.title'      => 'Veda: Fundraising Page: Title',
   );
+  $tokens['uk_co_vedaconsulting_screditor'] = array(
+    'uk_co_vedaconsulting_screditor.first_name' => 'Veda: Fundraiser: First Name',
+    'uk_co_vedaconsulting_screditor.last_name'  => 'Veda: Fundraiser: Last Name',
+  );
+  $tokens['uk_co_vedaconsulting_donation'] = array(
+    'uk_co_vedaconsulting_donation.total_amount' => 'Veda: Donation: Amount',
+  );
 }
 
 function dfptokens_civicrm_tokenValues(&$values, $cids, $job = null, $tokens = array(), $context = null) {
-  if (!empty($tokens['uk_co_vedaconsulting_pcp']) && $job) {
-    $query = "
+  if ((array_key_exists('uk_co_vedaconsulting_pcp', $tokens) ||
+    array_key_exists('uk_co_vedaconsulting_screditor', $tokens) ||
+    array_key_exists('uk_co_vedaconsulting_donation',  $tokens) ) && $job) {
+      $query = "
           SELECT cas.entity_value, cas.entity_status, cas.recipient
             FROM  civicrm_mailing_job cmj
       INNER JOIN civicrm_custom_track_mailing cctm ON cmj.mailing_id = cctm.mailing_id
@@ -146,7 +155,7 @@ function dfptokens_civicrm_tokenValues(&$values, $cids, $job = null, $tokens = a
       }
       $value  = implode(',', $value);
       $status = explode(CRM_Core_DAO::VALUE_SEPARATOR,
-        trim($actionSchedule->entity_status, CRM_Core_DAO::VALUE_SEPARATOR)
+        trim($dao->entity_status, CRM_Core_DAO::VALUE_SEPARATOR)
       );
       $status = implode(',', $status);
 
@@ -181,7 +190,12 @@ function dfptokens_civicrm_tokenValues(&$values, $cids, $job = null, $tokens = a
       $whereClause  = 'WHERE ' . implode(' AND ', $where);
 
       $query = "
-        SELECT {$contactField} as contactID, act.id as activityID, act.source_record_id, con.*, pcp.*
+        SELECT {$contactField} as contactID, 
+               con.total_amount as con_total_amount, 
+               pcp.intro_text as pcp_intro_text,
+               pcp.title      as pcp_title,
+               screditor.first_name as screditor_first_name,
+               screditor.last_name  as screditor_last_name
           FROM civicrm_activity act
        {$join}
     INNER JOIN  (SELECT $contactField as contact_id, MAX(act.activity_date_time) as max_date 
@@ -192,11 +206,18 @@ function dfptokens_civicrm_tokenValues(&$values, $cids, $job = null, $tokens = a
     INNER JOIN civicrm_contribution con       ON act.source_record_id = con.id
      LEFT JOIN civicrm_contribution_soft soft ON con.id = soft.contribution_id
      LEFT JOIN civicrm_pcp pcp                ON soft.pcp_id = pcp.id
+     LEFT JOIN civicrm_contact screditor      ON soft.contact_id = screditor.id
 {$whereClause}
       GROUP BY {$contactField}";
       $data = CRM_Core_DAO::executeQuery($query);
       while ($data->fetch()) {
-        $values[$data->contactID]['uk_co_vedaconsulting_pcp.intro_text'] = $data->intro_text;
+        $values[$data->contactID]['uk_co_vedaconsulting_pcp.title'] = $data->pcp_title;
+        $values[$data->contactID]['uk_co_vedaconsulting_pcp.intro_text'] = $data->pcp_intro_text;
+
+        $values[$data->contactID]['uk_co_vedaconsulting_donation.total_amount'] = $data->con_total_amount;
+
+        $values[$data->contactID]['uk_co_vedaconsulting_screditor.first_name'] = $data->screditor_first_name;
+        $values[$data->contactID]['uk_co_vedaconsulting_screditor.last_name']  = $data->screditor_last_name;
       }
     }
   }
