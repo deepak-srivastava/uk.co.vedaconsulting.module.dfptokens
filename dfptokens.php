@@ -125,97 +125,25 @@ function dfptokens_civicrm_tokenValues(&$values, $cids, $job = null, $tokens = a
   if ((array_key_exists('uk_co_vedaconsulting_pcp', $tokens) ||
     array_key_exists('uk_co_vedaconsulting_screditor', $tokens) ||
     array_key_exists('uk_co_vedaconsulting_donation',  $tokens) ) && $job) {
-      $query = "
-          SELECT cas.entity_value, cas.entity_status, cas.recipient
-            FROM  civicrm_mailing_job cmj
-      INNER JOIN civicrm_custom_track_mailing cctm ON cmj.mailing_id = cctm.mailing_id
-      INNER JOIN civicrm_action_schedule cas ON cctm.schedule_reminder_id = cas.id
-      INNER JOIN civicrm_action_mapping cam  ON cas.mapping_id = cam.id AND cam.entity = 'civicrm_activity'
-      WHERE cmj.id = %1";
-    $dao = CRM_Core_DAO::executeQuery($query, array(1 => array($job, 'Integer')));
-    if ($dao->fetch()) {
-      $value = explode(CRM_Core_DAO::VALUE_SEPARATOR,
-        trim($dao->entity_value, CRM_Core_DAO::VALUE_SEPARATOR)
-      );
 
-      // make sure activity types belong to that contribution component
-      if (empty($value)) {
-        return;
+    $remActObj = new CRM_Utils_ReminderActivityViaJob($job);
+    if ($remActObj->_actionScheduleId) {
+      if ($contribute = $remActObj->isActivityTypeBelongToContribute()) {
+        $query = $remActObj->buildContributeActivityQuery($cids);
+      } else if ($pcp = $remActObj->isActivityTypeBelongToPCP()) {
+        $query = $remActObj->buildPCPActivityQuery($cids);
       } else {
-        $compId = CRM_Core_Component::getComponentID('CiviContribute');
-        $contributionActTypes = CRM_Core_OptionGroup::values('activity_type',
-          FALSE, FALSE, FALSE,
-          " AND v.component_id={$compId}",
-          'value'
-        );
-        if (array_intersect($value, $contributionActTypes) !== $value) {
-          CRM_Core_Error::debug_log_message("Activity Type doesn't belong to that contribution component.");
-          return;
-        }
-      }
-      $value  = implode(',', $value);
-      $status = explode(CRM_Core_DAO::VALUE_SEPARATOR,
-        trim($dao->entity_status, CRM_Core_DAO::VALUE_SEPARATOR)
-      );
-      $status = implode(',', $status);
-
-      $recipientOptions = CRM_Core_OptionGroup::values('activity_contacts');
-      $contactField = $join ="";
-      switch (CRM_Utils_Array::value($dao->recipient, $recipientOptions)) {
-      case 'Activity Assignees':
-        $contactField = 'r.assignee_contact_id';
-        $join = 'INNER JOIN civicrm_activity_assignment r ON  r.activity_id = act.id';
-        break;
-
-      case 'Activity Source':
-        $contactField = 'act.source_contact_id';
-        break;
-
-      case 'Activity Targets':
-        $contactField = 'r.target_contact_id';
-        $join = 'INNER JOIN civicrm_activity_target r ON  r.activity_id = act.id';
-        break;
+        CRM_Core_Error::debug_log_message("Activity Type doesn't belong to contribution component or PCP.");
+        return;
       }
 
-      if (!empty($value)) {
-        $where[] = "act.activity_type_id IN ({$value})";
-      }
-      if (!empty($status)) {
-        $where[] = "act.status_id IN ({$status})";
-      }
-      $where[] = "act.is_current_revision = 1";
-      $where[] = "act.is_deleted = 0";
-      $where[] = "act.source_record_id IS NOT NULL";
-      $where[] = "{$contactField} IN (" . implode(',', $cids) . ")";
-      $whereClause  = 'WHERE ' . implode(' AND ', $where);
-
-      $query = "
-        SELECT {$contactField} as contactID, 
-               con.total_amount as con_total_amount, 
-               pcp.intro_text as pcp_intro_text,
-               pcp.title      as pcp_title,
-               screditor.first_name as screditor_first_name,
-               screditor.last_name  as screditor_last_name
-          FROM civicrm_activity act
-       {$join}
-    INNER JOIN  (SELECT $contactField as contact_id, MAX(act.activity_date_time) as max_date 
-                   FROM civicrm_activity act 
-                {$join}
-         {$whereClause} 
-               GROUP BY {$contactField}) maxact  ON act.activity_date_time = maxact.max_date AND {$contactField} = maxact.contact_id
-    INNER JOIN civicrm_contribution con       ON act.source_record_id = con.id
-     LEFT JOIN civicrm_contribution_soft soft ON con.id = soft.contribution_id
-     LEFT JOIN civicrm_pcp pcp                ON soft.pcp_id = pcp.id
-     LEFT JOIN civicrm_contact screditor      ON soft.contact_id = screditor.id
-{$whereClause}
-      GROUP BY {$contactField}";
       $data = CRM_Core_DAO::executeQuery($query);
       while ($data->fetch()) {
-        $values[$data->contactID]['uk_co_vedaconsulting_pcp.title'] = $data->pcp_title;
-        $values[$data->contactID]['uk_co_vedaconsulting_pcp.intro_text'] = $data->pcp_intro_text;
-
-        $values[$data->contactID]['uk_co_vedaconsulting_donation.total_amount'] = $data->con_total_amount;
-
+        if ($contribute) {
+          $values[$data->contactID]['uk_co_vedaconsulting_donation.total_amount'] = $data->con_total_amount;
+        }
+        $values[$data->contactID]['uk_co_vedaconsulting_pcp.title']            = $data->pcp_title;
+        $values[$data->contactID]['uk_co_vedaconsulting_pcp.intro_text']       = $data->pcp_intro_text;
         $values[$data->contactID]['uk_co_vedaconsulting_screditor.first_name'] = $data->screditor_first_name;
         $values[$data->contactID]['uk_co_vedaconsulting_screditor.last_name']  = $data->screditor_last_name;
       }
