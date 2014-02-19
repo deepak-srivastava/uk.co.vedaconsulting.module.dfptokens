@@ -111,6 +111,7 @@ function dfptokens_civicrm_tokens(&$tokens) {
   $tokens['uk_co_vedaconsulting_pcp'] = array(
     'uk_co_vedaconsulting_pcp.intro_text' => 'Veda: Fundraising Page: Intro Text',
     'uk_co_vedaconsulting_pcp.title'      => 'Veda: Fundraising Page: Title',
+    'uk_co_vedaconsulting_pcp.url'        => 'Veda: Fundraising Page: URL',
   );
   $tokens['uk_co_vedaconsulting_screditor'] = array(
     'uk_co_vedaconsulting_screditor.first_name' => 'Veda: Fundraiser: First Name',
@@ -132,6 +133,7 @@ function dfptokens_civicrm_tokenValues(&$values, $cids, $job = null, $tokens = a
         $query = $remActObj->buildContributeActivityQuery($cids);
       } else if ($pcp = $remActObj->isActivityTypeBelongToPCP()) {
         $query = $remActObj->buildPCPActivityQuery($cids);
+        $pcpCustomInfo = $remActObj->getCustomInfo(CRM_Utils_ReminderActivityViaJob::ACTIVITY_PCP_CS);
       } else {
         CRM_Core_Error::debug_log_message("Activity Type doesn't belong to contribution component or PCP.");
         return;
@@ -144,6 +146,10 @@ function dfptokens_civicrm_tokenValues(&$values, $cids, $job = null, $tokens = a
         }
         $values[$data->contactID]['uk_co_vedaconsulting_pcp.title']            = $data->pcp_title;
         $values[$data->contactID]['uk_co_vedaconsulting_pcp.intro_text']       = $data->pcp_intro_text;
+        if ($pcp) {
+          $values[$data->contactID]['uk_co_vedaconsulting_pcp.url']            = 
+            $data->{$pcpCustomInfo[CRM_Utils_ReminderActivityViaJob::ACTIVITY_PCP_CF_URL]['column_name']};
+        }
         $values[$data->contactID]['uk_co_vedaconsulting_screditor.first_name'] = $data->screditor_first_name;
         $values[$data->contactID]['uk_co_vedaconsulting_screditor.last_name']  = $data->screditor_last_name;
       }

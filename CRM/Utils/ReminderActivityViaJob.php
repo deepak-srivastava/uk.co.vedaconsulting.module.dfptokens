@@ -38,6 +38,9 @@
  *
  */
 class CRM_Utils_ReminderActivityViaJob {
+  const
+    ACTIVITY_PCP_CS = 'Digital Fundraising',
+    ACTIVITY_PCP_CF_URL = 'DFP URL';
 
   protected $_value  = array();
 
@@ -134,13 +137,15 @@ class CRM_Utils_ReminderActivityViaJob {
 
 
   function buildPCPActivityQuery($cids = array()) {
+    $pcpCustomInfo = $this->getCustomInfo(self::ACTIVITY_PCP_CS);
     list($whereClause, $join, $contactField) = $this->getActivityQueryVars($cids);
     $query = "
         SELECT {$contactField} as contactID, 
                pcp.intro_text as pcp_intro_text,
                pcp.title      as pcp_title,
                screditor.first_name as screditor_first_name,
-               screditor.last_name  as screditor_last_name
+               screditor.last_name  as screditor_last_name,
+               pcpc.*
           FROM civicrm_activity act
        {$join}
     INNER JOIN  (SELECT $contactField as contact_id, MAX(act.activity_date_time) as max_date 
@@ -148,8 +153,9 @@ class CRM_Utils_ReminderActivityViaJob {
                 {$join}
          {$whereClause} 
                GROUP BY {$contactField}) maxact  ON act.activity_date_time = maxact.max_date AND {$contactField} = maxact.contact_id
-    INNER JOIN civicrm_pcp pcp                ON act.source_record_id = pcp.id
-    INNER JOIN civicrm_contact screditor      ON pcp.contact_id = screditor.id
+    INNER JOIN civicrm_pcp pcp                      ON act.source_record_id = pcp.id
+    INNER JOIN {$pcpCustomInfo['table_name']} pcpc  ON act.id = pcpc.entity_id
+    INNER JOIN civicrm_contact screditor            ON pcp.contact_id = screditor.id
 {$whereClause}
       GROUP BY {$contactField}";
     return $query;
@@ -189,6 +195,25 @@ class CRM_Utils_ReminderActivityViaJob {
       }
       return FALSE;
     }
+  }
+
+  function getCustomInfo($title) {
+    $sql = "
+      SELECT     g.table_name, f.name, f.column_name, f.label as title
+      FROM       civicrm_custom_field f
+      INNER JOIN civicrm_custom_group g ON f.custom_group_id = g.id
+      WHERE      ( g.title = %1 )
+      ";
+    $params = array(1 => array($title, 'String'));
+    $dao    = CRM_Core_DAO::executeQuery($sql, $params);
+    while ($dao->fetch()) {
+      $customInfo['table_name'] = $dao->table_name;
+      $customInfo[$dao->title]   = 
+        array('column_name' => $dao->column_name, 
+        'title' => $dao->title, 
+        'name'  => $dao->name,);
+    }
+    return $customInfo;
   }
 }
 
