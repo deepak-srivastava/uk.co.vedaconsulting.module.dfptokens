@@ -147,7 +147,7 @@ function dfptokens_civicrm_tokenValues(&$values, $cids, $job = null, $tokens = a
       while ($data->fetch()) {
         $values[$data->contactID]['uk_co_vedaconsulting_pcp.title']            = $data->pcp_title;
         $values[$data->contactID]['uk_co_vedaconsulting_pcp.intro_text']       = $data->pcp_intro_text;
-          $values[$data->contactID]['uk_co_vedaconsulting_pcp.target']         = $data->goal_amount;
+          $values[$data->contactID]['uk_co_vedaconsulting_pcp.target']         = $data->pcp_goal_amount;
         $values[$data->contactID]['uk_co_vedaconsulting_screditor.first_name'] = $data->screditor_first_name;
         $values[$data->contactID]['uk_co_vedaconsulting_screditor.last_name']  = $data->screditor_last_name;
         if ($contribute) {
@@ -157,9 +157,8 @@ function dfptokens_civicrm_tokenValues(&$values, $cids, $job = null, $tokens = a
         }
         if ($data->pcp_id) {
           if ($node = $remActObj->getDFPNode($data->pcp_id)) {
-            $values[$data->contactID]['uk_co_vedaconsulting_pcp.url']            = $base_url . '/node/' . $node->nid;
-            $values[$data->contactID]['uk_co_vedaconsulting_pcp.thanku']         = 
-              $remActObj->getNode($pcpParams)->field_dfp_thank_you[LANGUAGE_NONE][0]['value'];
+            $values[$data->contactID]['uk_co_vedaconsulting_pcp.url']    = $base_url . '/node/' . $node->nid;
+            $values[$data->contactID]['uk_co_vedaconsulting_pcp.thanku'] = $node->field_dfp_thank_you[LANGUAGE_NONE][0]['value'];
           }
         }
       }

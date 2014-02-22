@@ -142,7 +142,6 @@ class CRM_Utils_ReminderActivityViaJob {
     return $query;
   }
 
-
   function buildPCPActivityQuery($cids = array()) {
     $pcpCustomInfo = $this->getCustomInfo(self::ACTIVITY_PCP_CS);
     //FIXME: retrieving thankyou & url from getDFPNode() directly. Don't really need custom
