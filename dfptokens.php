@@ -109,23 +109,27 @@ function dfptokens_civicrm_alterSettingsFolders(&$metaDataFolders = NULL) {
 
 function dfptokens_civicrm_tokens(&$tokens) {
   $tokens['uk_co_vedaconsulting_pcp'] = array(
-    'uk_co_vedaconsulting_pcp.intro_text' => 'Veda: Fundraising Page: Intro Text',
-    'uk_co_vedaconsulting_pcp.title'      => 'Veda: Fundraising Page: Title',
-    'uk_co_vedaconsulting_pcp.url'        => 'Veda: Fundraising Page: URL',
+    'uk_co_vedaconsulting_pcp.intro_text' => 'DFP: Fundraising Page: Intro Text',
+    'uk_co_vedaconsulting_pcp.title'      => 'DFP: Fundraising Page: Title',
+    'uk_co_vedaconsulting_pcp.url'        => 'DFP: Fundraising Page: URL',
+    'uk_co_vedaconsulting_pcp.thanku'     => 'DFP: Fundraising Page: Thank You Message',
+    'uk_co_vedaconsulting_pcp.target'     => 'DFP: Fundraising Page: Target Amount',
   );
   $tokens['uk_co_vedaconsulting_screditor'] = array(
-    'uk_co_vedaconsulting_screditor.first_name' => 'Veda: Fundraiser: First Name',
-    'uk_co_vedaconsulting_screditor.last_name'  => 'Veda: Fundraiser: Last Name',
+    'uk_co_vedaconsulting_screditor.first_name' => 'DFP: Fundraiser: First Name',
+    'uk_co_vedaconsulting_screditor.last_name'  => 'DFP: Fundraiser: Last Name',
   );
-  $tokens['uk_co_vedaconsulting_donation'] = array(
-    'uk_co_vedaconsulting_donation.total_amount' => 'Veda: Donation: Amount',
+  $tokens['uk_co_vedaconsulting_donor'] = array(
+    'uk_co_vedaconsulting_donor.total_amount' => 'DFP: Donation: Amount',
+    'uk_co_vedaconsulting_donor.first_name'   => 'DFP: Donor: First Name',
+    'uk_co_vedaconsulting_donor.last_name'    => 'DFP: Donor: Last Name',
   );
 }
 
 function dfptokens_civicrm_tokenValues(&$values, $cids, $job = null, $tokens = array(), $context = null) {
   if ((array_key_exists('uk_co_vedaconsulting_pcp', $tokens) ||
     array_key_exists('uk_co_vedaconsulting_screditor', $tokens) ||
-    array_key_exists('uk_co_vedaconsulting_donation',  $tokens) ) && $job) {
+    array_key_exists('uk_co_vedaconsulting_donor',  $tokens) ) && $job) {
 
     $remActObj = new CRM_Utils_ReminderActivityViaJob($job);
     if ($remActObj->_actionScheduleId) {
@@ -133,25 +137,31 @@ function dfptokens_civicrm_tokenValues(&$values, $cids, $job = null, $tokens = a
         $query = $remActObj->buildContributeActivityQuery($cids);
       } else if ($pcp = $remActObj->isActivityTypeBelongToPCP()) {
         $query = $remActObj->buildPCPActivityQuery($cids);
-        $pcpCustomInfo = $remActObj->getCustomInfo(CRM_Utils_ReminderActivityViaJob::ACTIVITY_PCP_CS);
       } else {
         CRM_Core_Error::debug_log_message("Activity Type doesn't belong to contribution component or PCP.");
         return;
       }
 
+      global $base_url;
       $data = CRM_Core_DAO::executeQuery($query);
       while ($data->fetch()) {
-        if ($contribute) {
-          $values[$data->contactID]['uk_co_vedaconsulting_donation.total_amount'] = $data->con_total_amount;
-        }
         $values[$data->contactID]['uk_co_vedaconsulting_pcp.title']            = $data->pcp_title;
         $values[$data->contactID]['uk_co_vedaconsulting_pcp.intro_text']       = $data->pcp_intro_text;
-        if ($pcp) {
-          $values[$data->contactID]['uk_co_vedaconsulting_pcp.url']            = 
-            $data->{$pcpCustomInfo[CRM_Utils_ReminderActivityViaJob::ACTIVITY_PCP_CF_URL]['column_name']};
-        }
+          $values[$data->contactID]['uk_co_vedaconsulting_pcp.target']         = $data->goal_amount;
         $values[$data->contactID]['uk_co_vedaconsulting_screditor.first_name'] = $data->screditor_first_name;
         $values[$data->contactID]['uk_co_vedaconsulting_screditor.last_name']  = $data->screditor_last_name;
+        if ($contribute) {
+          $values[$data->contactID]['uk_co_vedaconsulting_donor.total_amount'] = $data->donor_total_amount;
+          $values[$data->contactID]['uk_co_vedaconsulting_donor.first_name']   = $data->donor_first_name;
+          $values[$data->contactID]['uk_co_vedaconsulting_donor.last_name']    = $data->donor_last_name;
+        }
+        if ($data->pcp_id) {
+          if ($node = $remActObj->getDFPNode($data->pcp_id)) {
+            $values[$data->contactID]['uk_co_vedaconsulting_pcp.url']            = $base_url . '/node/' . $node->nid;
+            $values[$data->contactID]['uk_co_vedaconsulting_pcp.thanku']         = 
+              $remActObj->getNode($pcpParams)->field_dfp_thank_you[LANGUAGE_NONE][0]['value'];
+          }
+        }
       }
     }
   }

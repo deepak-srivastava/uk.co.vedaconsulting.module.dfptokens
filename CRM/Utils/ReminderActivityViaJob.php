@@ -113,10 +113,16 @@ class CRM_Utils_ReminderActivityViaJob {
   function buildContributeActivityQuery($cids = array()) {
     list($whereClause, $join, $contactField) = $this->getActivityQueryVars($cids);
     $query = "
-        SELECT {$contactField} as contactID, 
-               con.total_amount as con_total_amount, 
-               pcp.intro_text as pcp_intro_text,
-               pcp.title      as pcp_title,
+        SELECT {$contactField}      as contactID, 
+               con.total_amount     as donor_total_amount, 
+               donor.id             as donor_id,
+               donor.first_name     as donor_first_name,
+               donor.last_name      as donor_last_name,
+               pcp.id               as pcp_id,
+               pcp.intro_text       as pcp_intro_text,
+               pcp.title            as pcp_title,
+               pcp.goal_amount      as pcp_goal_amount,
+               screditor.id         as screditor_id,
                screditor.first_name as screditor_first_name,
                screditor.last_name  as screditor_last_name
           FROM civicrm_activity act
@@ -127,6 +133,7 @@ class CRM_Utils_ReminderActivityViaJob {
          {$whereClause} 
                GROUP BY {$contactField}) maxact  ON act.activity_date_time = maxact.max_date AND {$contactField} = maxact.contact_id
     INNER JOIN civicrm_contribution con       ON act.source_record_id = con.id
+    INNER JOIN civicrm_contact    donor       ON con.contact_id = donor.id
      LEFT JOIN civicrm_contribution_soft soft ON con.id = soft.contribution_id
      LEFT JOIN civicrm_pcp pcp                ON soft.pcp_id = pcp.id
      LEFT JOIN civicrm_contact screditor      ON soft.contact_id = screditor.id
@@ -138,11 +145,15 @@ class CRM_Utils_ReminderActivityViaJob {
 
   function buildPCPActivityQuery($cids = array()) {
     $pcpCustomInfo = $this->getCustomInfo(self::ACTIVITY_PCP_CS);
+    //FIXME: retrieving thankyou & url from getDFPNode() directly. Don't really need custom
     list($whereClause, $join, $contactField) = $this->getActivityQueryVars($cids);
     $query = "
-        SELECT {$contactField} as contactID, 
-               pcp.intro_text as pcp_intro_text,
-               pcp.title      as pcp_title,
+        SELECT {$contactField}      as contactID, 
+               pcp.id               as pcp_id,
+               pcp.intro_text       as pcp_intro_text,
+               pcp.title            as pcp_title,
+               pcp.goal_amount      as pcp_goal_amount,
+               screditor.id         as screditor_id,
                screditor.first_name as screditor_first_name,
                screditor.last_name  as screditor_last_name,
                pcpc.*
@@ -154,8 +165,8 @@ class CRM_Utils_ReminderActivityViaJob {
          {$whereClause} 
                GROUP BY {$contactField}) maxact  ON act.activity_date_time = maxact.max_date AND {$contactField} = maxact.contact_id
     INNER JOIN civicrm_pcp pcp                      ON act.source_record_id = pcp.id
-    INNER JOIN {$pcpCustomInfo['table_name']} pcpc  ON act.id = pcpc.entity_id
     INNER JOIN civicrm_contact screditor            ON pcp.contact_id = screditor.id
+    INNER JOIN {$pcpCustomInfo['table_name']} pcpc  ON act.id = pcpc.entity_id
 {$whereClause}
       GROUP BY {$contactField}";
     return $query;
@@ -195,6 +206,18 @@ class CRM_Utils_ReminderActivityViaJob {
       }
       return FALSE;
     }
+  }
+
+  // return drupal node object 
+  function getDFPNode($pcpID) {
+      $nodeID = CRM_Core_DAO::singleValueQuery(
+	  "SELECT drupal_node_id FROM civicrm_pcp_campaign WHERE pcp_id = %1", 
+	  array(1 => array($pcpID, 'Integer'))
+      );
+      if ($nodeID && function_exists('node_load')) {
+	  return node_load($nodeID);
+      }
+      return NULL;
   }
 
   function getCustomInfo($title) {
