@@ -209,14 +209,19 @@ class CRM_Utils_ReminderActivityViaJob {
 
   // return drupal node object 
   function getDFPNode($pcpID) {
-      $nodeID = CRM_Core_DAO::singleValueQuery(
-	  "SELECT drupal_node_id FROM civicrm_pcp_campaign WHERE pcp_id = %1", 
-	  array(1 => array($pcpID, 'Integer'))
-      );
-      if ($nodeID && function_exists('node_load')) {
-	  return node_load($nodeID);
-      }
-      return NULL;
+    $nodeID = CRM_Core_DAO::singleValueQuery(
+      "SELECT drupal_node_id FROM civicrm_pcp_campaign WHERE pcp_id = %1", 
+      array(1 => array($pcpID, 'Integer'))
+    );
+    if ($nodeID && function_exists('node_load')) {
+      return node_load($nodeID);
+    }
+    return NULL;
+  }
+
+  function getDFPRaisedAmount($pcpID) {
+    $query = "SELECT SUM(amount) as raised FROM civicrm_contribution_soft WHERE pcp_id = %1";
+    return CRM_Core_DAO::singleValueQuery($query, array(1 => array($pcpID, 'Integer')));
   }
 
   function getCustomInfo($title) {

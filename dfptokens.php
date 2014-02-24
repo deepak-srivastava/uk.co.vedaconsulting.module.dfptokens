@@ -114,6 +114,7 @@ function dfptokens_civicrm_tokens(&$tokens) {
     'uk_co_vedaconsulting_pcp.url'        => 'DFP: Fundraising Page: URL',
     'uk_co_vedaconsulting_pcp.thanku'     => 'DFP: Fundraising Page: Thank You Message',
     'uk_co_vedaconsulting_pcp.target'     => 'DFP: Fundraising Page: Target Amount',
+    'uk_co_vedaconsulting_pcp.raised'     => 'DFP: Fundraising Page: Amount Raised So Far',
   );
   $tokens['uk_co_vedaconsulting_screditor'] = array(
     'uk_co_vedaconsulting_screditor.first_name' => 'DFP: Fundraiser: First Name',
@@ -160,6 +161,7 @@ function dfptokens_civicrm_tokenValues(&$values, $cids, $job = null, $tokens = a
             $values[$data->contactID]['uk_co_vedaconsulting_pcp.url']    = $base_url . '/node/' . $node->nid;
             $values[$data->contactID]['uk_co_vedaconsulting_pcp.thanku'] = $node->field_dfp_thank_you[LANGUAGE_NONE][0]['value'];
           }
+          $values[$data->contactID]['uk_co_vedaconsulting_pcp.raised']   = $remActObj->getDFPRaisedAmount($data->pcp_id);
         }
       }
     }
