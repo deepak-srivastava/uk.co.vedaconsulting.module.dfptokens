@@ -143,7 +143,6 @@ function dfptokens_civicrm_tokenValues(&$values, $cids, $job = null, $tokens = a
         return;
       }
 
-      global $base_url;
       $data = CRM_Core_DAO::executeQuery($query);
       while ($data->fetch()) {
         $values[$data->contactID]['uk_co_vedaconsulting_pcp.title']            = $data->pcp_title;
@@ -158,7 +157,7 @@ function dfptokens_civicrm_tokenValues(&$values, $cids, $job = null, $tokens = a
         }
         if ($data->pcp_id) {
           if ($node = $remActObj->getDFPNode($data->pcp_id)) {
-            $values[$data->contactID]['uk_co_vedaconsulting_pcp.url']    = $base_url . '/node/' . $node->nid;
+            $values[$data->contactID]['uk_co_vedaconsulting_pcp.url']    = CRM_Utils_System::url("node/{$node->nid}", NULL, TRUE);
             $values[$data->contactID]['uk_co_vedaconsulting_pcp.thanku'] = $node->field_dfp_thank_you[LANGUAGE_NONE][0]['value'];
           }
           $values[$data->contactID]['uk_co_vedaconsulting_pcp.raised']   = $remActObj->getDFPRaisedAmount($data->pcp_id);
